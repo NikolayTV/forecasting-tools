@@ -63,7 +63,7 @@ class SmartSearcher(OutputsText, AiModel):
         self, prompt: str, end_published_date: datetime | None = None
     ) -> tuple[str, list[ExaHighlightQuote]]:
         search_terms = await self.__come_up_with_search_queries(prompt, end_published_date)
-        quotes = await self.__search_for_quotes(search_terms, end_published_date=end_published_date)
+        quotes = await self.__search_for_quotes(search_terms)
         report = await self.__compile_report(quotes, prompt)
         if self.include_works_cited_list:
             works_cited_list = WorksCitedCreator.create_works_cited_list(
@@ -105,6 +105,8 @@ class SmartSearcher(OutputsText, AiModel):
         search_terms = await self.llm.invoke_and_return_verified_type(
             prompt, list[SearchInput]
         )
+        for search in search_terms:
+            search.end_published_date = end_published_date
         search_log = "\n".join(
             [
                 f"Search {i+1}: {search}"
@@ -115,12 +117,12 @@ class SmartSearcher(OutputsText, AiModel):
         return search_terms
 
     async def __search_for_quotes(
-        self, search_inputs: list[SearchInput], end_published_date: datetime | None = None
+        self, search_inputs: list[SearchInput]
     ) -> list[ExaHighlightQuote]:
         all_quotes: list[list[ExaHighlightQuote]] = await asyncio.gather(
             *[
                 self.exa_searcher.invoke_for_highlights_in_relevance_order(
-                    search_query_or_strategy=search, end_published_date=end_published_date
+                    search_query_or_strategy=search, end_published_date=search.end_published_date
                 )
                 for search in search_inputs
             ]

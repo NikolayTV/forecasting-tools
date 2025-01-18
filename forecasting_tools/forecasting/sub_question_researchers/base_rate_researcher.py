@@ -52,7 +52,7 @@ class BaseRateResearcher(QuestionResponder):
         self.__end_date: datetime | None = None
         self.__general_search_information: str | None = None
 
-    async def respond_with_markdown(self) -> str:
+    async def respond_with_markdown(self, end_published_date: datetime | None = None) -> str:
         try:
             report = await self.make_base_rate_report()
             return report.markdown_report
@@ -63,7 +63,7 @@ class BaseRateResearcher(QuestionResponder):
             await asyncio.sleep(2)
             back_up_report = await GeneralResearcher(
                 self.question
-            ).respond_with_markdown()
+            ).respond_with_markdown(end_published_date=end_published_date)
             back_up_report = f"Deep Base Rate research was attempted but failed. Here is a general search report instead:\n\n{back_up_report}"
             return back_up_report
 

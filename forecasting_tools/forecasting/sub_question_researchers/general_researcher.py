@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime
 
 from forecasting_tools.forecasting.sub_question_researchers.question_responder import (
     QuestionResponder,
@@ -13,7 +14,7 @@ class GeneralResearcher(QuestionResponder):
     NAME = "General Search"
     DESCRIPTION_OF_WHEN_TO_USE = "Use this responder when the question doesn't match well with any of the other responders or you need simple online information"
 
-    async def respond_with_markdown(self) -> str:
+    async def respond_with_markdown(self, end_published_date: datetime | None = None) -> str:
         prompt = clean_indents(
             f"""
             You are a discerning super genius expert helping a superforecaster forecasting for Metaculus. You are doing research on a question to help them make a better prediction.
@@ -37,6 +38,6 @@ class GeneralResearcher(QuestionResponder):
             """
         )
         model = SmartSearcher(temperature=0)
-        answer = await model.invoke(prompt, end_published_date=None)
+        answer = await model.invoke(prompt, end_published_date=end_published_date)
         logger.info(f"Answered question: {self.question}")
         return answer

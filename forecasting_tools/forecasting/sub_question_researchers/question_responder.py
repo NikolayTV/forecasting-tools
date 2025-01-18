@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 
 class QuestionResponder(ABC):
@@ -25,5 +26,5 @@ class QuestionResponder(ABC):
                 raise NotImplementedError("You forgot to define NAME")
 
     @abstractmethod
-    async def respond_with_markdown(self) -> str:
+    async def respond_with_markdown(self, end_published_date: datetime | None = None) -> str:
         pass

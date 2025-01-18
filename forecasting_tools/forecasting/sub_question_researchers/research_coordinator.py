@@ -314,13 +314,14 @@ class ResearchCoordinator:
         if responder_type is None:
             answering_question_coroutines = [
                 question_router.answer_question_with_markdown_using_routing(
-                    question
+                    question,
+                    end_published_date=self.question.open_time
                 )
                 for question in questions
             ]
         else:
             answering_question_coroutines = [
-                responder_type(question).respond_with_markdown()
+                responder_type(question).respond_with_markdown(end_published_date=self.question.open_time)
                 for question in questions
             ]
         exception_handled_coroutines = (
