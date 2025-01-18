@@ -60,7 +60,7 @@ class BaseRateResearcher(QuestionResponder):
             logger.error(
                 f"Error while making base rate report for question: {self.question}. Doing general search instead. Error: {e}"
             )
-            await asyncio.sleep(15)
+            await asyncio.sleep(2)
             back_up_report = await GeneralResearcher(
                 self.question
             ).respond_with_markdown()

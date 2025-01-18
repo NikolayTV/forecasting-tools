@@ -53,7 +53,7 @@ class Q4MainBinaryBot(Q3TemplateBot):
             (f) What you would forecast if there was only a quarter of the time left.
             (g) What you would forecast if there was 4x the time left.
 
-            You write your rationale and then the last thing you write is your final answer as: "Probability: ZZ%", 0-100
+            You write your rationale and then The last thing you write is your final answer as: "Probability: ZZ%", 0-100. Very important - at the end of your answer you should write a probability with a digit and % sign
             """
         )
         gpt_forecast = await self.FINAL_DECISION_LLM.invoke(prompt)

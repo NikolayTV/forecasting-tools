@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
+from forecasting_tools.ai_models.deepseek import DeepSeekChat
 from forecasting_tools.ai_models.claude35sonnet import Claude35Sonnet
 from forecasting_tools.ai_models.gpt4o import Gpt4o
 from forecasting_tools.ai_models.metaculus4o import Gpt4oMetaculusProxy
@@ -33,17 +34,21 @@ from forecasting_tools.forecasting.questions_and_reports.questions import (
 logger = logging.getLogger(__name__)
 
 
-class TemplateBot(ForecastBot):
+class TemplateBot_v1(ForecastBot):
     FINAL_DECISION_LLM = (
-        Gpt4o(temperature=0.7)
-        if os.getenv("OPENAI_API_KEY")
+        DeepSeekChat(temperature=0.7)
+        if os.getenv("OPENROUTER_TOKEN")
         else (
+            Gpt4o(temperature=0.7)
+            if os.getenv("OPENAI_API_KEY")
+            else (
             Gpt4oMetaculusProxy(temperature=0.7)
             if os.getenv("METACULUS_TOKEN")
             else (
                 Claude35Sonnet(temperature=0.7)
                 if os.getenv("ANTHROPIC_API_KEY")
                 else Gpt4o(temperature=0.7)
+            )
             )
         )
     )
@@ -74,7 +79,7 @@ class TemplateBot(ForecastBot):
                 prompt
             )
         elif os.getenv("EXA_API_KEY"):
-            response = await SmartSearcher().invoke(prompt)
+            response = await SmartSearcher().invoke(prompt, end_published_date=question.open_time)
         else:
             logger.error(
                 "No API keys for searching the web. Skipping research and setting it blank."

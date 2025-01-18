@@ -37,6 +37,6 @@ class GeneralResearcher(QuestionResponder):
             """
         )
         model = SmartSearcher(temperature=0)
-        answer = await model.invoke(prompt)
+        answer = await model.invoke(prompt, end_published_date=None)
         logger.info(f"Answered question: {self.question}")
         return answer

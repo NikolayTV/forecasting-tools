@@ -106,39 +106,46 @@ class ExaSearcher(
         self.num_results = num_results
 
     async def invoke_for_highlights_in_relevance_order(
-        self, search_query_or_strategy: str | SearchInput
+        self,
+        search_query_or_strategy: str | SearchInput,
+        start_published_date: datetime | None = None,
+        end_published_date: datetime | None = None
     ) -> list[ExaHighlightQuote]:
-        assert (
-            self.include_highlights
-        ), "include_highlights must be true to use this method"
-        sources = await self.invoke(search_query_or_strategy)
+        assert self.include_highlights, "include_highlights must be true to use this method"
+        sources = await self.invoke(
+            search_query_or_strategy,
+            start_published_date=start_published_date,
+            end_published_date=end_published_date
+        )
         all_highlights = []
         for source in sources:
-            for highlight, score in zip(
-                source.highlights, source.highlight_scores
-            ):
+            for highlight, score in zip(source.highlights, source.highlight_scores):
                 all_highlights.append(
                     ExaHighlightQuote(
                         highlight_text=highlight, score=score, source=source
                     )
                 )
-        sorted_highlights = sorted(
-            all_highlights, key=lambda x: x.score, reverse=True
-        )
+        sorted_highlights = sorted(all_highlights, key=lambda x: x.score, reverse=True)
         return sorted_highlights
 
     async def invoke(
-        self, search_query_or_strategy: str | SearchInput
+        self,
+        search_query_or_strategy: str | SearchInput,
+        start_published_date: datetime | None = None,
+        end_published_date: datetime | None = None
     ) -> list[ExaSource]:
         if isinstance(search_query_or_strategy, str):
-            search_strategy = self.__get_default_search_strategy(
-                search_query_or_strategy
-            )
+            search_strategy = self.__get_default_search_strategy(search_query_or_strategy)
         else:
             search_strategy = search_query_or_strategy
-        return await self.__retryable_timed_cost_request_limited_invoke(
-            search_strategy
-        )
+
+        # Override dates if provided
+        if start_published_date is not None:
+            search_strategy.start_published_date = start_published_date
+        if end_published_date is not None:
+            search_strategy.end_published_date = end_published_date
+
+        return await self.__retryable_timed_cost_request_limited_invoke(search_strategy)
 
     @RetryableModel._retry_according_to_model_allowed_tries
     @RequestLimitedModel._wait_till_request_capacity_available
@@ -202,11 +209,9 @@ class ExaSearcher(
         }
 
         if search.start_published_date:
-            payload["startPublishedDate"] = (
-                search.start_published_date.isoformat()
-            )
+            payload["startPublishedDate"] = f"{search.start_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
         if search.end_published_date:
-            payload["endPublishedDate"] = search.end_published_date.isoformat()
+            payload["endPublishedDate"] = f"{search.end_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
         if search.include_text:
             payload["includeText"] = [search.include_text]
 

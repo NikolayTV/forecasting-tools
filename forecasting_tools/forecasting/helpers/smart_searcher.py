@@ -51,19 +51,19 @@ class SmartSearcher(OutputsText, AiModel):
         self.include_works_cited_list = include_works_cited_list
         self.use_citation_brackets = use_brackets_around_citations
 
-    async def invoke(self, prompt: str) -> str:
+    async def invoke(self, prompt: str, end_published_date: datetime | None = None) -> str:
         logger.debug(f"Running search for prompt: {prompt}")
         if not prompt:
             raise ValueError("Prompt cannot be empty")
-        report, _ = await self._mockable_direct_call_to_model(prompt)
+        report, _ = await self._mockable_direct_call_to_model(prompt, end_published_date)
         logger.debug(f"Report: {report[:1000]}...")
         return report
 
     async def _mockable_direct_call_to_model(
-        self, prompt: str
+        self, prompt: str, end_published_date: datetime | None = None
     ) -> tuple[str, list[ExaHighlightQuote]]:
-        search_terms = await self.__come_up_with_search_queries(prompt)
-        quotes = await self.__search_for_quotes(search_terms)
+        search_terms = await self.__come_up_with_search_queries(prompt, end_published_date)
+        quotes = await self.__search_for_quotes(search_terms, end_published_date=end_published_date)
         report = await self.__compile_report(quotes, prompt)
         if self.include_works_cited_list:
             works_cited_list = WorksCitedCreator.create_works_cited_list(
@@ -74,8 +74,9 @@ class SmartSearcher(OutputsText, AiModel):
         return final_report, quotes
 
     async def __come_up_with_search_queries(
-        self, prompt: str
+        self, prompt: str, end_published_date: datetime | None = None
     ) -> list[SearchInput]:
+
         prompt = clean_indents(
             f"""
             You have been given the following instructions. Instructions are included between <><><><><><><><><><><><> tags.
@@ -94,7 +95,7 @@ class SmartSearcher(OutputsText, AiModel):
             - You have limited searches, which approaches would be highest priority?
             Please only use the additional search fields ONLY IF it would return useful results.
             Don't unnecessarily constrain results.
-            Remember today is {datetime.now().strftime("%Y-%m-%d")}.
+            Remember today is {end_published_date.strftime('%Y-%m-%d') if end_published_date else datetime.now().strftime('%Y-%m-%d')}
 
             {self.llm.get_schema_format_instructions_for_pydantic_type(SearchInput)}
 
@@ -114,12 +115,12 @@ class SmartSearcher(OutputsText, AiModel):
         return search_terms
 
     async def __search_for_quotes(
-        self, search_inputs: list[SearchInput]
+        self, search_inputs: list[SearchInput], end_published_date: datetime | None = None
     ) -> list[ExaHighlightQuote]:
         all_quotes: list[list[ExaHighlightQuote]] = await asyncio.gather(
             *[
                 self.exa_searcher.invoke_for_highlights_in_relevance_order(
-                    search
+                    search_query_or_strategy=search, end_published_date=end_published_date
                 )
                 for search in search_inputs
             ]

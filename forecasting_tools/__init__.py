@@ -23,6 +23,9 @@ from forecasting_tools.forecasting.forecast_bots.main_bot import (
 from forecasting_tools.forecasting.forecast_bots.template_bot import (
     TemplateBot as TemplateBot,
 )
+from forecasting_tools.forecasting.forecast_bots.template_v1_bot import (
+    TemplateBot_v1 as TemplateBot_v1,
+)
 from forecasting_tools.forecasting.helpers.benchmarker import (
     Benchmarker as Benchmarker,
 )

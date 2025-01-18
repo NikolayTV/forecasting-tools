@@ -140,7 +140,7 @@ class ForecastDatabaseManager:
             resolution_criteria = report.question.resolution_criteria
             fine_print = report.question.fine_print
             page_url = report.question.page_url
-            prediction = str(report.prediction)
+            prediction = float(report.prediction)
             try:
                 explanation = (
                     report.summary
