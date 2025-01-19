@@ -61,12 +61,13 @@ def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot:
 async def run_morning_forecasts(bot_type: str, allow_rerun: bool) -> None:
     CustomLogger.setup_logging()
     forecaster = get_forecaster(bot_type, allow_rerun)
-    TOURNAMENT_ID = MetaculusApi.AI_COMPETITION_ID_Q4
+    # TOURNAMENT_ID = MetaculusApi.AI_COMPETITION_ID_Q4
+    TOURNAMENT_ID = MetaculusApi.AI_WARMUP_TOURNAMENT_ID
     reports = await forecaster.forecast_on_tournament(TOURNAMENT_ID)
 
     if os.environ.get("CODA_API_KEY"):
         for report in reports:
-            await asyncio.sleep(5)
+            await asyncio.sleep(1)
             try:
                 ForecastDatabaseManager.add_forecast_report_to_database(
                     report, ForecastRunType.REGULAR_FORECAST

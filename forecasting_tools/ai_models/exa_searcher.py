@@ -26,6 +26,8 @@ from forecasting_tools.util.jsonable import Jsonable
 
 logger = logging.getLogger(__name__)
 
+import dotenv
+dotenv.load_dotenv()
 
 class ExaSource(BaseModel, Jsonable):
     original_query: str
@@ -59,22 +61,27 @@ class SearchInput(BaseModel, Jsonable):
         ..., description="The query to search in the search engine"
     )
     highlight_query: str | None = Field(
+        # description="Leave empty"
         description="The query to search within each document using semantic similarity"
     )
-    include_domains: list[str] = Field(
-        description="List of domains to require in the search results for example: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to ONLY results from these domains."
-    )
-    exclude_domains: list[str] = Field(
-        description="List of domains to exclude from the search results: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to exclude results from these domains."
-    )
-    include_text: str | None = Field(
-        description="A 1-5 word phrase that must be exactly present in the text of the search results"
-    )
+    # include_domains: list[str] = Field(
+    #     # description="List of domains to require in the search results for example: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to ONLY results from these domains."
+    #     description="Leave empty"
+    # )
+    # exclude_domains: list[str] = Field(
+    #     description="Leave empty"
+    #     # description="List of domains to exclude from the search results: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to exclude results from these domains."
+    # )
+    # include_text: str | None = Field(
+    #     description="Leave empty"
+    #     # description="A 1-5 word phrase that must be exactly present in the text of the search results"
+    # )
     # start_published_date: datetime | None = Field(
     #     description="The earliest publication date for search results"
     # )
     end_published_date: datetime | None = Field(
-        description="The latest publication date for search results"
+        # description="The latest publication date for search results"
+        description="Leave empty"
     )
 
 
@@ -183,13 +190,11 @@ class ExaSearcher(
             "type": "auto",
             "useAutoprompt": True,
             "numResults": self.num_results,
-            "includeDomains": search.include_domains,
-            "excludeDomains": search.exclude_domains,
+            "includeDomains": [],
+            "excludeDomains": ['wikipedia.org'],
             "livecrawl": "always",
             "contents": {
-                "text": (
-                    {"includeHtmlTags": True} if self.include_text else False
-                ),
+                "text": self.include_text,
                 "highlights": (
                     {
                         "query": (
@@ -208,8 +213,8 @@ class ExaSearcher(
 
         if search.end_published_date:
             payload["endPublishedDate"] = f"{search.end_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
-        if search.include_text:
-            payload["includeText"] = [search.include_text]
+        # if search.include_text:
+            # payload["includeText"] = [search.include_text]
 
         return url, headers, payload
 
@@ -218,9 +223,9 @@ class ExaSearcher(
         return SearchInput(
             web_search_query=search_query,
             highlight_query=search_query,
-            include_domains=[],
-            exclude_domains=[],
-            include_text=None,
+            # include_domains=[],
+            # exclude_domains=[],
+            # include_text=None,
             end_published_date=None,
         )
 
@@ -247,6 +252,8 @@ class ExaSearcher(
     ) -> list[ExaSource]:
         exa_sources: list[ExaSource] = []
         auto_prompt_string = response_data.get("autopromptString")
+        if len(response_data["results"]) == 0:
+            raise RuntimeError(f"No results found in Exa search, query: {search_query.web_search_query} retrying")
 
         for result in response_data["results"]:
             assert isinstance(result, dict), "result is not a dict"

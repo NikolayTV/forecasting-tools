@@ -6,7 +6,8 @@ from datetime import datetime
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
 from forecasting_tools.ai_models.deepseek import DeepSeekChat
 from forecasting_tools.ai_models.claude35sonnet import Claude35Sonnet
-from forecasting_tools.ai_models.gpt4o import Gpt4o
+from forecasting_tools.ai_models.gpt4o import Gpt4o, Gpt4oTrue
+from forecasting_tools.ai_models.gpto1preview import GptO1Preview
 from forecasting_tools.ai_models.metaculus4o import Gpt4oMetaculusProxy
 from forecasting_tools.ai_models.perplexity import Perplexity
 from forecasting_tools.forecasting.forecast_bots.forecast_bot import (
@@ -36,10 +37,10 @@ logger = logging.getLogger(__name__)
 
 class TemplateBot_v1(ForecastBot):
     FINAL_DECISION_LLM = (
-        DeepSeekChat(temperature=0.7)
-        if os.getenv("OPENROUTER_TOKEN")
+        Gpt4oTrue(temperature=0.7)
+        if os.getenv("OPENAI_API_KEY")
         else (
-            Gpt4o(temperature=0.7)
+            Gpt4oTrue(temperature=0.7)
             if os.getenv("OPENAI_API_KEY")
             else (
             Gpt4oMetaculusProxy(temperature=0.7)
@@ -74,11 +75,11 @@ class TemplateBot_v1(ForecastBot):
             {question.background_info}
             """
         )
-        if os.getenv("PERPLEXITY_API_KEY"):
-            response = await Perplexity(system_prompt=system_prompt).invoke(
-                prompt
-            )
-        elif os.getenv("EXA_API_KEY"):
+        # if os.getenv("PERPLEXITY_API_KEY"):
+        #     response = await Perplexity(system_prompt=system_prompt).invoke(
+        #         prompt
+        #     )
+        if os.getenv("EXA_API_KEY"):
             response = await SmartSearcher().invoke(prompt, end_published_date=question.open_time)
         else:
             logger.error(
@@ -110,7 +111,7 @@ class TemplateBot_v1(ForecastBot):
             Your research assistant says:
             {research}
 
-            Today is {datetime.now().strftime("%Y-%m-%d")}.
+            Today is {question.open_time.strftime("%Y-%m-%d") if question.open_time else datetime.now().strftime("%Y-%m-%d")}.
 
             Before answering you write:
             (a) The time left until the outcome to the question is known.
@@ -155,7 +156,7 @@ class TemplateBot_v1(ForecastBot):
             Your research assistant says:
             {research}
 
-            Today is {datetime.now().strftime("%Y-%m-%d")}.
+            Today is {question.open_time.strftime("%Y-%m-%d") if question.open_time else datetime.now().strftime("%Y-%m-%d")}.
 
             Before answering you write:
             (a) The time left until the outcome to the question is known.
@@ -213,7 +214,7 @@ class TemplateBot_v1(ForecastBot):
             Your research assistant says:
             {research}
 
-            Today is {datetime.now().strftime("%Y-%m-%d")}.
+            Today is {question.open_time.strftime("%Y-%m-%d") if question.open_time else datetime.now().strftime("%Y-%m-%d")}.
 
             {lower_bound_message}
             {upper_bound_message}

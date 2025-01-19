@@ -97,11 +97,27 @@ class SmartSearcher(OutputsText, AiModel):
             Don't unnecessarily constrain results.
             Remember today is {end_published_date.strftime('%Y-%m-%d') if end_published_date else datetime.now().strftime('%Y-%m-%d')}
 
-            {self.llm.get_schema_format_instructions_for_pydantic_type(SearchInput)}
-
             Make sure to return a list of the search inputs as a list of JSON objects in this schema.
+            Each object in the list must have a "web_search_query" field.
+            The "highlight_query" field should be null.
+            The "end_published_date" field should be null unless specifically needed.
+
+            Example output format:
+            [
+                {{
+                    "web_search_query": "first search query here",
+                    "highlight_query": "The query to search within each document using semantic similarity",
+                    "end_published_date": 'date'
+                }},
+                {{
+                    "web_search_query": "second search query here",
+                    "highlight_query": "The query to search within each document using semantic similarity",
+                    "end_published_date": 'date
+                }}
+            ]
             """
         )
+
         search_terms = await self.llm.invoke_and_return_verified_type(
             prompt, list[SearchInput]
         )
@@ -119,26 +135,44 @@ class SmartSearcher(OutputsText, AiModel):
     async def __search_for_quotes(
         self, search_inputs: list[SearchInput]
     ) -> list[ExaHighlightQuote]:
-        all_quotes: list[list[ExaHighlightQuote]] = await asyncio.gather(
-            *[
-                self.exa_searcher.invoke_for_highlights_in_relevance_order(
-                    search_query_or_strategy=search, end_published_date=search.end_published_date
-                )
-                for search in search_inputs
+        async def try_search() -> list[list[ExaHighlightQuote]]:
+            return await asyncio.gather(
+                *[
+                    self.exa_searcher.invoke_for_highlights_in_relevance_order(
+                        search_query_or_strategy=search, end_published_date=search.end_published_date
+                    )
+                    for search in search_inputs
+                ]
+            )
+
+        max_retries = 7
+        attempt = 1
+
+        while attempt <= max_retries:
+            logger.info(f"Search attempt {attempt}/{max_retries}")
+            all_quotes = await try_search()
+            flattened_quotes = [
+                quote for sublist in all_quotes for quote in sublist
             ]
-        )
-        flattened_quotes = [
-            quote for sublist in all_quotes for quote in sublist
-        ]
-        unique_quotes: dict[str, ExaHighlightQuote] = {}
-        for quote in flattened_quotes:
-            if quote.highlight_text not in unique_quotes:
-                unique_quotes[quote.highlight_text] = quote
-        deduplicated_quotes = sorted(
-            unique_quotes.values(), key=lambda x: x.score, reverse=True
-        )
+            unique_quotes: dict[str, ExaHighlightQuote] = {}
+            for quote in flattened_quotes:
+                if quote.highlight_text not in unique_quotes:
+                    unique_quotes[quote.highlight_text] = quote
+            deduplicated_quotes = sorted(
+                unique_quotes.values(), key=lambda x: x.score, reverse=True
+            )
+
+            if len(deduplicated_quotes) > 0:
+                break
+
+            if attempt < max_retries:
+                logger.warning(f"No quotes found on attempt {attempt}, retrying search...")
+                await asyncio.sleep(2 * attempt)
+            attempt += 1
+
         if len(deduplicated_quotes) == 0:
-            raise RuntimeError("No quotes found")
+            raise RuntimeError(f"No quotes found after {max_retries} attempts")
+
         if len(deduplicated_quotes) < self.num_quotes_to_evaluate_from_search:
             logger.warning(
                 f"Couldn't find the number of quotes asked for. Found {len(deduplicated_quotes)} quotes, but need {self.num_quotes_to_evaluate_from_search} quotes"
