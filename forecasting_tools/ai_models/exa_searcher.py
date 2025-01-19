@@ -70,9 +70,9 @@ class SearchInput(BaseModel, Jsonable):
     include_text: str | None = Field(
         description="A 1-5 word phrase that must be exactly present in the text of the search results"
     )
-    start_published_date: datetime | None = Field(
-        description="The earliest publication date for search results"
-    )
+    # start_published_date: datetime | None = Field(
+    #     description="The earliest publication date for search results"
+    # )
     end_published_date: datetime | None = Field(
         description="The latest publication date for search results"
     )
@@ -140,8 +140,6 @@ class ExaSearcher(
             search_strategy = search_query_or_strategy
 
         # Override dates if provided
-        if start_published_date is not None:
-            search_strategy.start_published_date = start_published_date
         if end_published_date is not None:
             search_strategy.end_published_date = end_published_date
 
@@ -208,8 +206,6 @@ class ExaSearcher(
             },
         }
 
-        if search.start_published_date:
-            payload["startPublishedDate"] = f"{search.start_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
         if search.end_published_date:
             payload["endPublishedDate"] = f"{search.end_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
         if search.include_text:
@@ -225,7 +221,6 @@ class ExaSearcher(
             include_domains=[],
             exclude_domains=[],
             include_text=None,
-            start_published_date=None,
             end_published_date=None,
         )
 

@@ -101,8 +101,7 @@ class MainBot(TemplateBot):
             {research}
             ```
 
-            Today is {datetime.now().strftime("%Y-%m-%d")}.
-
+            Today is {question.open_time.strftime("%Y-%m-%d") if question.open_time else datetime.now().strftime("%Y-%m-%d")}.
 
             Before answering you write:
             (a) The time left until the outcome to the question is known.
@@ -113,12 +112,19 @@ class MainBot(TemplateBot):
             (f) What you would forecast if there was only a quarter of the time left.
             (g) What you would forecast if there was 4x the time left.
 
+            Here are how the confidence levels map to probabilities:
+            Very unlikely (0-20%)
+            Unlikely (20-40%)
+            Uncertain (40-60%)
+            Likely (60-80%)
+            Very likely (80-100%)
+
             You write your rationale and then The last thing you write is your final answer as: "Probability: ZZ%", 0-100. Very important - at the end of your answer you should write a probability with a digit and % sign
             """
         )
         gpt_forecast = await self.FINAL_DECISION_LLM.invoke(prompt)
         prediction = self._extract_forecast_from_binary_rationale(
-            gpt_forecast, max_prediction=0.95, min_prediction=0.05
+            gpt_forecast, max_prediction=1, min_prediction=0
         )
         reasoning = (
             gpt_forecast

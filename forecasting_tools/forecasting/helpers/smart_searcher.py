@@ -40,7 +40,7 @@ class SmartSearcher(OutputsText, AiModel):
         super().__init__(*args, **kwargs)
         assert 0 <= temperature <= 1, "Temperature must be between 0 and 1"
         self.temperature = temperature
-        self.num_quotes_to_evaluate_from_search = 15
+        self.num_quotes_to_evaluate_from_search = 20
         self.number_of_searches_to_run = num_searches_to_run
         self.exa_searcher = ExaSearcher(
             include_text=False,
@@ -55,14 +55,14 @@ class SmartSearcher(OutputsText, AiModel):
         logger.debug(f"Running search for prompt: {prompt}")
         if not prompt:
             raise ValueError("Prompt cannot be empty")
-        report, _ = await self._mockable_direct_call_to_model(prompt, end_published_date)
+        report, _ = await self._mockable_direct_call_to_model(prompt, end_published_date=end_published_date)
         logger.debug(f"Report: {report[:1000]}...")
         return report
 
     async def _mockable_direct_call_to_model(
         self, prompt: str, end_published_date: datetime | None = None
     ) -> tuple[str, list[ExaHighlightQuote]]:
-        search_terms = await self.__come_up_with_search_queries(prompt, end_published_date)
+        search_terms = await self.__come_up_with_search_queries(prompt, end_published_date=end_published_date)
         quotes = await self.__search_for_quotes(search_terms)
         report = await self.__compile_report(quotes, prompt)
         if self.include_works_cited_list:

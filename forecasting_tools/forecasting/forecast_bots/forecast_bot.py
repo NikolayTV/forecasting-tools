@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import logging
+import os
 import time
 from abc import ABC, abstractmethod
 from datetime import datetime
@@ -377,15 +378,25 @@ class ForecastBot(ABC):
         return "\n".join(rationales)
 
     def __create_file_path_to_save_to(
-        self, questions: list[MetaculusQuestion]
-    ) -> str:
-        assert (
-            self.folder_to_save_reports_to is not None
-        ), "Folder to save reports to is not set"
-        now_as_string = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-        folder_path = self.folder_to_save_reports_to
+            self, questions: list[MetaculusQuestion]
+        ) -> str:
+            assert (
+                self.folder_to_save_reports_to is not None
+            ), "Folder to save reports to is not set"
 
-        if not folder_path.endswith("/"):
-            folder_path += "/"
+            base_folder = self.folder_to_save_reports_to.rstrip("/")
+            date_folder = datetime.now().strftime("%Y_%m_%d")
+            full_folder_path = f"{base_folder}/{date_folder}"
 
-        return f"{folder_path}Forecasts-for-{now_as_string}--{len(questions)}-questions.json"
+            os.makedirs(full_folder_path, exist_ok=True)
+
+            current_time = datetime.now().strftime("%H-%M")
+
+            if len(questions) == 1:
+                question = questions[0]
+                safe_title = "".join(c if c.isalnum() or c in "-_ " else "_" for c in question.question_text[:50])
+                filename = f"{current_time}_{question.id_of_post}_{safe_title}.json"
+            else:
+                filename = f"{current_time}_batch_{len(questions)}_questions.json"
+
+            return f"{full_folder_path}/{filename}"
