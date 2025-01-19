@@ -33,15 +33,25 @@ logger = logging.getLogger(__name__)
 
 
 def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot | TemplateBot_v1:
-    bot_classes = {
-        "template": TemplateBot,
-        "main": MainBot,
-    }
+    # Print environment variables for debugging
+    env_vars = [
+        "OPENAI_API_KEY",
+        "METACULUS_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "PERPLEXITY_API_KEY",
+        "EXA_API_KEY",
+        "CODA_API_KEY",
+        "HUGGINGFACE_API_KEY"
+    ]
 
-    if bot_type not in bot_classes:
-        raise ValueError(
-            f"Invalid bot type: {bot_type}. Must be one of {list(bot_classes.keys())}"
-        )
+    print("\nEnvironment variables status:")
+    for var in env_vars:
+        value = os.getenv(var)
+        is_set = "✓" if value else "✗"
+        # Only show first/last 4 chars if value exists
+        display_value = f"{value[:4]}...{value[-4:]}" if value else "Not set"
+        print(f"{var}: {is_set} {display_value}")
+    print()
 
     file_path = "logs/forecasts/forecast_bot/"
     skip_previously_forecasted_questions = not allow_rerun
@@ -73,8 +83,8 @@ def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot | 
 async def run_morning_forecasts(bot_type: str, allow_rerun: bool) -> None:
     CustomLogger.setup_logging()
     forecaster = get_forecaster(bot_type, allow_rerun)
-    # TOURNAMENT_ID = MetaculusApi.AI_COMPETITION_ID_Q4
-    TOURNAMENT_ID = MetaculusApi.AI_WARMUP_TOURNAMENT_ID
+    TOURNAMENT_ID = MetaculusApi.AI_COMPETITION_ID_Q1
+    # TOURNAMENT_ID = MetaculusApi.AI_WARMUP_TOURNAMENT_ID
     reports = await forecaster.forecast_on_tournament(TOURNAMENT_ID)
 
     if os.environ.get("CODA_API_KEY"):

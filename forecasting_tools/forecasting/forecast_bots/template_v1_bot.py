@@ -4,7 +4,7 @@ import re
 from datetime import datetime
 
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
-from forecasting_tools.ai_models.deepseek import DeepSeekChat
+# from forecasting_tools.ai_models.deepseek import DeepSeekChat
 from forecasting_tools.ai_models.claude35sonnet import Claude35Sonnet
 from forecasting_tools.ai_models.gpt4o import Gpt4o, Gpt4oTrue
 from forecasting_tools.ai_models.gpto1preview import GptO1Preview
@@ -78,10 +78,12 @@ class TemplateBot_v1(ForecastBot):
         response = ""
         if os.getenv("PERPLEXITY_API_KEY"):
             response += 'Perplexity search conclusion:'
-            response += str(await Perplexity(system_prompt=system_prompt).invoke(prompt))
+            perp_response = await Perplexity(system_prompt=system_prompt).invoke(prompt)
+            response += str(perp_response)
         if os.getenv("EXA_API_KEY"):
             response += 'Exa search conclusion:'
-            response += str(await SmartSearcher().invoke(prompt, end_published_date=question.open_time))
+            exa_response = await SmartSearcher().invoke(prompt, end_published_date=question.open_time)
+            response += str(exa_response)
         else:
             logger.error(
                 "No API keys for searching the web. Skipping research and setting it blank."

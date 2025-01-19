@@ -13,10 +13,10 @@ class DeepSeekChat(OpenAiTextToTextModel):
     This model sends gpt4o requests to the Metaculus proxy server.
     """
 
-    OPENROUTER_TOKEN = os.getenv("OPENROUTER_TOKEN")
+    OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
     _OPENAI_ASYNC_CLIENT = AsyncOpenAI(
         base_url="https://openrouter.ai/api/v1/",
-        api_key=OPENROUTER_TOKEN,
+        api_key=OPENROUTER_API_KEY,
         max_retries=0,  # Retry is implemented locally
     )
 
