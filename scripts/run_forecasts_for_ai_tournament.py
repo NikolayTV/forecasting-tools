@@ -19,6 +19,9 @@ from forecasting_tools.forecasting.forecast_bots.main_bot import MainBot
 from forecasting_tools.forecasting.forecast_bots.template_bot import (
     TemplateBot,
 )
+from forecasting_tools.forecasting.forecast_bots.template_v1_bot import (
+    TemplateBot_v1,
+)
 from forecasting_tools.forecasting.helpers.forecast_database_manager import (
     ForecastDatabaseManager,
     ForecastRunType,
@@ -29,7 +32,7 @@ from forecasting_tools.util.custom_logger import CustomLogger
 logger = logging.getLogger(__name__)
 
 
-def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot:
+def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot | TemplateBot_v1:
     bot_classes = {
         "template": TemplateBot,
         "main": MainBot,
@@ -42,7 +45,16 @@ def get_forecaster(bot_type: str, allow_rerun: bool) -> TemplateBot | MainBot:
 
     file_path = "logs/forecasts/forecast_bot/"
     skip_previously_forecasted_questions = not allow_rerun
-    if bot_type == "template":
+    if bot_type == "template_v1":
+        return TemplateBot_v1(
+            research_reports_per_question=5,
+            predictions_per_research_report=2,
+            use_research_summary_to_forecast=True,
+            publish_reports_to_metaculus=True,
+            folder_to_save_reports_to=file_path,
+            skip_previously_forecasted_questions=skip_previously_forecasted_questions,
+        )
+    elif bot_type == "template":
         return TemplateBot(
             research_reports_per_question=3,
             predictions_per_research_report=3,
@@ -82,7 +94,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--bot-type",
-        choices=["template", "main"],
+        choices=["template", "main", "template_v1"],
         default="main",
         help="Type of bot to use for forecasting",
     )

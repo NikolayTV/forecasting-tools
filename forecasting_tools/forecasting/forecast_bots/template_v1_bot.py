@@ -75,12 +75,13 @@ class TemplateBot_v1(ForecastBot):
             {question.background_info}
             """
         )
-        # if os.getenv("PERPLEXITY_API_KEY"):
-        #     response = await Perplexity(system_prompt=system_prompt).invoke(
-        #         prompt
-        #     )
+        response = ""
+        if os.getenv("PERPLEXITY_API_KEY"):
+            response += 'Perplexity search conclusion:'
+            response += str(await Perplexity(system_prompt=system_prompt).invoke(prompt))
         if os.getenv("EXA_API_KEY"):
-            response = await SmartSearcher().invoke(prompt, end_published_date=question.open_time)
+            response += 'Exa search conclusion:'
+            response += str(await SmartSearcher().invoke(prompt, end_published_date=question.open_time))
         else:
             logger.error(
                 "No API keys for searching the web. Skipping research and setting it blank."

@@ -43,7 +43,7 @@ class SmartSearcher(OutputsText, AiModel):
         self.num_quotes_to_evaluate_from_search = 20
         self.number_of_searches_to_run = num_searches_to_run
         self.exa_searcher = ExaSearcher(
-            include_text=False,
+            include_text=True,
             include_highlights=True,
             num_results=num_sites_per_search,
         )
