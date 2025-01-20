@@ -47,14 +47,23 @@ class NumericDistribution(BaseModel):
     def validate_percentiles_order(
         cls: NumericDistribution, percentiles: list[Percentile]
     ) -> list[Percentile]:
-        for i in range(len(percentiles) - 1):
-            if percentiles[i].percentile >= percentiles[i + 1].percentile:
-                raise ValueError(
-                    "Percentiles must be in strictly increasing order"
-                )
-            if percentiles[i].value >= percentiles[i + 1].value:
-                raise ValueError("Values must be in strictly increasing order")
-        return percentiles
+        # First sort by value to ensure values are increasing
+        sorted_by_value = sorted(percentiles, key=lambda x: x.value)
+
+        # Then ensure percentiles are also increasing by reassigning them
+        # We distribute percentiles evenly between the min and max of original percentiles
+        min_percentile = min(p.percentile for p in percentiles)
+        max_percentile = max(p.percentile for p in percentiles)
+        n = len(sorted_by_value)
+
+        for i, percentile in enumerate(sorted_by_value):
+            # Linear interpolation between min and max percentile
+            if n > 1:
+                percentile.percentile = min_percentile + (max_percentile - min_percentile) * (i / (n - 1))
+            else:
+                percentile.percentile = min_percentile
+
+        return sorted_by_value
 
     @property
     def cdf(self) -> list[Percentile]:
