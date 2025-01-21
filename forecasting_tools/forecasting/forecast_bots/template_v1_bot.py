@@ -76,7 +76,7 @@ class TemplateBot_v1(ForecastBot):
             """
         )
         response = ""
-        if os.getenv("PERPLEXITY_API_KEY"):
+        if question.open_time and question.open_time.strftime("%Y-%m-%d") == datetime.today().strftime("%Y-%m-%d") and os.getenv("PERPLEXITY_API_KEY"):
             response += 'Perplexity search conclusion:'
             perp_response = await Perplexity(system_prompt=system_prompt).invoke(prompt)
             response += str(perp_response)
