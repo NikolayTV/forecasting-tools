@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 import os
 import asyncio
-from fastapi import FastAPI, HTTPException, Depends, Security
+from fastapi import FastAPI, HTTPException, Depends, Security, Query
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 import uvicorn
@@ -108,11 +108,19 @@ class TelegramNotifier:
 
 @app.get("/get_prediction")
 async def get_prediction(
-    question: str,
-    current_date: str | None = None,
-    version: str | None = None,
+    question: str = Query(..., description="The question to predict"),
+    current_date: str | None = Query(None, description="Optional date in YYYY-MM-DD format. Used as cutoff for news. Defaults to current date"),
+    version: str | None = Query("v1", description="Model version to use - 'v1' (faster ~40s, basic) or 'v2' (better but slower ~70s, more thorough)"),
     authorized: bool = Depends(verify_token)
 ) -> PredictionResponse:
+    """Get a prediction for a given question.
+
+    Args:
+        question: The question to predict
+        current_date: Optional date in YYYY-MM-DD format. Defaults to current date
+        version: Model version to use - 'v1' (faster ~40s, basic) or 'v2' (better but slower ~70s, more thorough)
+        authorized: Automatically injected auth status
+    """
     try:
         notifier = TelegramNotifier()
     except ValueError as e:
@@ -143,15 +151,6 @@ async def get_prediction(
                         skip_previously_forecasted_questions=True,
                     )
                 elif version == "v2":
-                    bot = TemplateBot_v1(
-                        research_reports_per_question=3,
-                        predictions_per_research_report=3,
-                        use_research_summary_to_forecast=True,
-                        publish_reports_to_metaculus=False,
-                        folder_to_save_reports_to='./reports',
-                        skip_previously_forecasted_questions=True,
-                    )
-                elif version == "v3":
                     bot = Q4VeritasWithExaAndPerplexity(
                         research_reports_per_question=2,
                         predictions_per_research_report=3,

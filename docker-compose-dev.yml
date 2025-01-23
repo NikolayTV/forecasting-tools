@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./reports:/app/reports
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: ["python", "-m", "forecasting_tools.api.app"]
+    restart: unless-stopped
