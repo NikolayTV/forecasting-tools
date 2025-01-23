@@ -89,13 +89,14 @@ class OpenAiUtils:
     def __determine_if_message_is_an_image_message(
         message: ChatCompletionMessageParam,
     ) -> bool:
-        try:
-            content = message["content"]  # type: ignore
-            content_types = [part["type"] for part in content]  # type: ignore
-            assert "image_url" in content_types
-            return True
-        except Exception:
-            return False
+        return False
+        # try:
+        #     content = message["content"]  # type: ignore
+        #     content_types = [part["type"] for part in content]  # type: ignore
+        #     assert "image_url" in content_types
+        #     return True
+        # except Exception:
+        #     return False
 
     @classmethod
     def __turn_regular_message_into_tokens(

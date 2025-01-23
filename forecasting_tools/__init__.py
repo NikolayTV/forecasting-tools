@@ -26,6 +26,10 @@ from forecasting_tools.forecasting.forecast_bots.template_bot import (
 )
 from forecasting_tools.forecasting.forecast_bots.template_v1_bot import (
     TemplateBot_v1 as TemplateBot_v1,
+)
+from forecasting_tools.forecasting.forecast_bots.experiments.q4v_w_exa_nik import (
+    Q4VeritasWithExaAndPerplexity as Q4VeritasWithExaAndPerplexity,
+)
 from forecasting_tools.forecasting.helpers.asknews_searcher import (
     AskNewsSearcher as AskNewsSearcher,
 )
@@ -38,7 +42,7 @@ from forecasting_tools.forecasting.helpers.metaculus_api import (
 from forecasting_tools.forecasting.helpers.metaculus_api import (
     MetaculusApi as MetaculusApi,
 )
-from forecasting_tools.forecasting.helpers.smart_searcher import (
+from forecasting_tools.forecasting.helpers.smart_searcher_nik import (
     SmartSearcher as SmartSearcher,
 )
 from forecasting_tools.forecasting.questions_and_reports.benchmark_for_bot import (

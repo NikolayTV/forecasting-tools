@@ -138,7 +138,7 @@ class SmartSearcher(OutputsText, AiModel):
             return await asyncio.gather(
                 *[
                     self.exa_searcher.invoke_for_highlights_in_relevance_order(
-                        search_query_or_strategy=search, end_published_date=search.end_published_date
+                        search_query_or_strategy=search
                     )
                     for search in search_inputs
                 ]

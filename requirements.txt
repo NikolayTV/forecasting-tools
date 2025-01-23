@@ -22,3 +22,5 @@ pillow>=11.0.0
 transformers>=4.44.1
 typeguard>=4.3.0
 scikit-learn>=1.5.2
+litellm>=1.59.3
+asknews>=0.9.0

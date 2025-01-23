@@ -275,9 +275,8 @@ class ForecastBot(ABC):
         self, question: MetaculusQuestion
     ) -> ResearchWithPredictions:
         research = await self.run_research(question)
-        summary_report = await self.summarize_research(question, research)
         research_to_use = (
-            summary_report
+            await self.summarize_research(question, research)
             if self.use_research_summary_to_forecast
             else research
         )
@@ -315,7 +314,7 @@ class ForecastBot(ABC):
             )
         return ResearchWithPredictions(
             research_report=research,
-            summary_report=summary_report,
+            summary_report=research_to_use,
             errors=errors,
             predictions=valid_predictions,
         )

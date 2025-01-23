@@ -54,36 +54,40 @@ class ExaHighlightQuote(BaseModel, Jsonable):
     highlight_text: str
     score: float
     source: ExaSource
+    published_date: datetime | None = Field(
+        default=None,
+        description="The publication date of the source"
+    )
 
 
 class SearchInput(BaseModel, Jsonable):
     web_search_query: str = Field(
-        ..., description="The query to search in the search engine"
+        ..., description="The search query to find relevant web pages"
     )
     highlight_query: str | None = Field(
-        # description="Leave empty"
-        description="The query to search within each document using semantic similarity"
+        default=None,
+        description="The text to highlight within each document. If None, web_search_query will be used"
     )
-    # include_domains: list[str] = Field(
-    #     # description="List of domains to require in the search results for example: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to ONLY results from these domains."
-    #     description="Leave empty"
-    # )
-    # exclude_domains: list[str] = Field(
-    #     description="Leave empty"
-    #     # description="List of domains to exclude from the search results: ['youtube.com', 'en.wikipedia.org']. An empty list means no filter. This will constrain search to exclude results from these domains."
-    # )
-    # include_text: str | None = Field(
-    #     description="Leave empty"
-    #     # description="A 1-5 word phrase that must be exactly present in the text of the search results"
-    # )
-    # start_published_date: datetime | None = Field(
-    #     description="The earliest publication date for search results"
-    # )
+    include_domains: list[str] = Field(
+        default_factory=list,
+        description="List of domains to require in the search results"
+    )
+    exclude_domains: list[str] = Field(
+        default_factory=list,
+        description="List of domains to exclude from the search results"
+    )
+    include_text: str | None = Field(
+        default=None,
+        description="A 1-5 word phrase that must be exactly present in the text"
+    )
+    start_published_date: datetime | None = Field(
+        default=None,
+        description="The earliest publication date for search results"
+    )
     end_published_date: datetime | None = Field(
-        # description="The latest publication date for search results"
-        description="Leave empty"
+        default=None,
+        description="The latest publication date for search results"
     )
-
 
 class ExaSearcher(
     RequestLimitedModel, RetryableModel, TimeLimitedModel, IncursCost
@@ -115,21 +119,17 @@ class ExaSearcher(
     async def invoke_for_highlights_in_relevance_order(
         self,
         search_query_or_strategy: str | SearchInput,
-        start_published_date: datetime | None = None,
-        end_published_date: datetime | None = None
     ) -> list[ExaHighlightQuote]:
         assert self.include_highlights, "include_highlights must be true to use this method"
         sources = await self.invoke(
             search_query_or_strategy,
-            start_published_date=start_published_date,
-            end_published_date=end_published_date
         )
         all_highlights = []
         for source in sources:
             for highlight, score in zip(source.highlights, source.highlight_scores):
                 all_highlights.append(
                     ExaHighlightQuote(
-                        highlight_text=highlight, score=score, source=source
+                        highlight_text=highlight, score=score, source=source, published_date=source.published_date
                     )
                 )
         sorted_highlights = sorted(all_highlights, key=lambda x: x.score, reverse=True)
@@ -137,18 +137,13 @@ class ExaSearcher(
 
     async def invoke(
         self,
-        search_query_or_strategy: str | SearchInput,
-        start_published_date: datetime | None = None,
-        end_published_date: datetime | None = None
+        search_query_or_strategy: str | SearchInput
     ) -> list[ExaSource]:
         if isinstance(search_query_or_strategy, str):
             search_strategy = self.__get_default_search_strategy(search_query_or_strategy)
         else:
             search_strategy = search_query_or_strategy
 
-        # Override dates if provided
-        if end_published_date is not None:
-            search_strategy.end_published_date = end_published_date
 
         return await self.__retryable_timed_cost_request_limited_invoke(search_strategy)
 
@@ -213,8 +208,10 @@ class ExaSearcher(
 
         if search.end_published_date:
             payload["endPublishedDate"] = f"{search.end_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
-        # if search.include_text:
-            # payload["includeText"] = [search.include_text]
+        if search.start_published_date:
+            payload["startPublishedDate"] = f"{search.start_published_date.strftime('%Y-%m-%d')}T00:00:00.000Z"
+        if search.include_text:
+            payload["includeText"] = [search.include_text]
 
         return url, headers, payload
 
@@ -223,9 +220,9 @@ class ExaSearcher(
         return SearchInput(
             web_search_query=search_query,
             highlight_query=search_query,
-            # include_domains=[],
-            # exclude_domains=[],
-            # include_text=None,
+            include_domains=[],
+            exclude_domains=[],
+            include_text=None,
             end_published_date=None,
         )
 
@@ -343,15 +340,15 @@ class ExaSearcher(
 #   "url": "https://www.historyonthenet.com/category/assassinated-presidents",
 #   "publishedDate": "2019-01-01T00:00:00.000Z",
 #   "author": "None",
-#   "text": "<div><div> <div> <p>Scroll down to see articles about the U.S. presidents who died in office, and the backgrounds and motivations of their assassins</p> </div> <p>Scroll down to see articles about the U.S. presidents who died in office, and the backgrounds and motivations of their assassins</p> <hr /> <article> <a href=\"https://www.historyonthenet.com/oscar-ramiro-ortega-hernandez\"> </a> <h2><a href=\"https://www.historyonthenet.com/oscar-ramiro-ortega-hernandez\">Oscar Ramiro Ortega-Hernandez</a></h2> <p>The following article on Oscar Ramiro Ortega-Hernandez is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Perhaps the most dangerous threat to President Obama’s life came from twenty-one-year-old Oscar Ramiro Ortega-Hernandez, who had criminal…</p> </article> <article> <a href=\"https://www.historyonthenet.com/copycat-killers\"> </a> <h2><a href=\"https://www.historyonthenet.com/copycat-killers\">Copycat Killers: Becoming Famous by Becoming Infamous</a></h2> <p>The following article on copycat killers is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…</p> </article> <article> <a href=\"https://www.historyonthenet.com/assassinated-presidents\"> </a> <h2><a href=\"https://www.historyonthenet.com/assassinated-presidents\">Assassinated Presidents: Profiles of Them and Their Killers</a></h2> <p>The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. The list of assassinated presidents receives a new member approximately every 20-40 years. Here are those who were killed while…</p> </article> <article> <a href=\"https://www.historyonthenet.com/isaac-aguigui\"> </a> <h2><a href=\"https://www.historyonthenet.com/isaac-aguigui\">Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin</a></h2> <p>The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. (“Forever Enduring Always Read”),…</p> </article> <article> <a href=\"https://www.historyonthenet.com/khalid-kelly\"> </a> <h2><a href=\"https://www.historyonthenet.com/khalid-kelly\">Khalid Kelly: Irish Would-Be Obama Assassin</a></h2> <p>The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In May 2011, Irish Muslim militant Terry “Khalid” Kelly was arrested for threatening to assassinate President…</p> </article> <article> <a href=\"https://www.historyonthenet.com/timothy-ryan-gutierrez-hacker-threatened-obama\"> </a> <h2><a href=\"https://www.historyonthenet.com/timothy-ryan-g",
+#   "text": "<div><div> <div> <p>Scroll down to see articles about the U.S. presidents who died in office, and the backgrounds and motivations of their assassins</p> </div> <p>Scroll down to see articles about the U.S. presidents who died in office, and the backgrounds and motivations of their assassins</p> <hr /> <article> <a href=\"https://www.historyonthenet.com/oscar-ramiro-ortega-hernandez\"> </a> <h2><a href=\"https://www.historyonthenet.com/oscar-ramiro-ortega-hernandez\">Oscar Ramiro Ortega-Hernandez</a></h2> <p>The following article on Oscar Ramiro Ortega-Hernandez is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Perhaps the most dangerous threat to President Obama's life came from twenty-one-year-old Oscar Ramiro Ortega-Hernandez, who had criminal…</p> </article> <article> <a href=\"https://www.historyonthenet.com/copycat-killers\"> </a> <h2><a href=\"https://www.historyonthenet.com/copycat-killers\">Copycat Killers: Becoming Famous by Becoming Infamous</a></h2> <p>The following article on copycat killers is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…</p> </article> <article> <a href=\"https://www.historyonthenet.com/assassinated-presidents\"> </a> <h2><a href=\"https://www.historyonthenet.com/assassinated-presidents\">Assassinated Presidents: Profiles of Them and Their Killers</a></h2> <p>The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. The list of assassinated presidents receives a new member approximately every 20-40 years. Here are those who were killed while…</p> </article> <article> <a href=\"https://www.historyonthenet.com/isaac-aguigui\"> </a> <h2><a href=\"https://www.historyonthenet.com/isaac-aguigui\">Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin</a></h2> <p>The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. ("Forever Enduring Always Read"),…</p> </article> <article> <a href=\"https://www.historyonthenet.com/khalid-kelly\"> </a> <h2><a href=\"https://www.historyonthenet.com/khalid-kelly\">Khalid Kelly: Irish Would-Be Obama Assassin</a></h2> <p>The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In May 2011, Irish Muslim militant Terry "Khalid" Kelly was arrested for threatening to assassinate President…</p> </article> <article> <a href=\"https://www.historyonthenet.com/timothy-ryan-gutierrez-hacker-threatened-obama\"> </a> <h2><a href=\"https://www.historyonthenet.com/timothy-ryan-g",
 #   "highlights": [
 #     "The list of assassinated presidents receives a new member approximately every 20-40 years. Here are those who were killed while…      Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin  The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R.",
-#     "In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. (“Forever Enduring Always Read”),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In May 2011, Irish Muslim militant Terry “Khalid” Kelly was arrested for threatening to assassinate President…",
-#     "Here are those who were killed while…      Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin  The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. (“Forever Enduring Always Read”),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama.",
+#     "In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. ("Forever Enduring Always Read"),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In May 2011, Irish Muslim militant Terry "Khalid" Kelly was arrested for threatening to assassinate President…",
+#     "Here are those who were killed while…      Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin  The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. ("Forever Enduring Always Read"),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama.",
 #     "It is available for order now from Amazon and Barnes &amp; Noble. The list of assassinated presidents receives a new member approximately every 20-40 years. Here are those who were killed while…      Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin  The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble.",
-#     "In May 2011, Irish Muslim militant Terry “Khalid” Kelly was arrested for threatening to assassinate President…",
-#     "Perhaps the most dangerous threat to President Obama’s life came from twenty-one-year-old Oscar Ramiro Ortega-Hernandez, who had criminal…      Copycat Killers: Becoming Famous by Becoming Infamous  The following article on copycat killers is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…      Assassinated Presidents: Profiles of Them and Their Killers  The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama.",
-#     "It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. (“Forever Enduring Always Read”),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble.",
+#     "In May 2011, Irish Muslim militant Terry "Khalid" Kelly was arrested for threatening to assassinate President…",
+#     "Perhaps the most dangerous threat to President Obama's life came from twenty-one-year-old Oscar Ramiro Ortega-Hernandez, who had criminal…      Copycat Killers: Becoming Famous by Becoming Infamous  The following article on copycat killers is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…      Assassinated Presidents: Profiles of Them and Their Killers  The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama.",
+#     "It is available for order now from Amazon and Barnes &amp; Noble. In 2012, Barack Obama was targeted by a domestic terror group of soldiers called F.E.A.R. ("Forever Enduring Always Read"),…      Khalid Kelly: Irish Would-Be Obama Assassin  The following article on Terry Kelly (\"Khalid Kelly\") is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble.",
 #     "Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…      Assassinated Presidents: Profiles of Them and Their Killers  The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. The list of assassinated presidents receives a new member approximately every 20-40 years.",
 #     "It is available for order now from Amazon and Barnes &amp; Noble. Many assassins and would-be assassins of U.S. presidents were copycat killers obsessed with assassins from the past. Some borrowed…      Assassinated Presidents: Profiles of Them and Their Killers  The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble.",
 #     "Some borrowed…      Assassinated Presidents: Profiles of Them and Their Killers  The following article on assassinated presidents is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama. It is available for order now from Amazon and Barnes &amp; Noble. The list of assassinated presidents receives a new member approximately every 20-40 years. Here are those who were killed while…      Isaac Aguigui: Militia Leader, Wannabe Presidential Assassin  The following article on Isaac Aguigui is an excerpt from Mel Ayton's Hunting the President: Threats, Plots, and Assassination Attempts—From FDR to Obama."

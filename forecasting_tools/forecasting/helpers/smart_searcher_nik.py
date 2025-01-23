@@ -4,6 +4,7 @@ import re
 import urllib.parse
 from datetime import datetime
 from json_repair import repair_json
+import json
 
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
 from forecasting_tools.ai_models.basic_model_interfaces.ai_model import AiModel
@@ -36,21 +37,24 @@ class SmartSearcher(OutputsText, AiModel):
         use_brackets_around_citations: bool = True,
         num_searches_to_run: int = 2,
         num_sites_per_search: int = 10,
+        use_compile_report: bool = False,
+        num_quotes_to_evaluate_from_search: int = 10,
         **kwargs,
     ) -> None:
         super().__init__(*args, **kwargs)
         assert 0 <= temperature <= 1, "Temperature must be between 0 and 1"
         self.temperature = temperature
-        self.num_quotes_to_evaluate_from_search = 20
+        self.num_quotes_to_evaluate_from_search = num_quotes_to_evaluate_from_search
         self.number_of_searches_to_run = num_searches_to_run
         self.exa_searcher = ExaSearcher(
-            include_text=True,
+            include_text=False,
             include_highlights=True,
             num_results=num_sites_per_search,
         )
         self.llm = BasicLlm(temperature=temperature)
         self.include_works_cited_list = include_works_cited_list
         self.use_citation_brackets = use_brackets_around_citations
+        self.use_compile_report = use_compile_report
 
     async def invoke(self, prompt: str, end_published_date: datetime | None = None) -> str:
         logger.debug(f"Running search for prompt: {prompt}")
@@ -65,80 +69,111 @@ class SmartSearcher(OutputsText, AiModel):
     ) -> tuple[str, list[ExaHighlightQuote]]:
         search_terms = await self.__come_up_with_search_queries(prompt, end_published_date=end_published_date)
         quotes = await self.__search_for_quotes(search_terms)
-        report = await self.__compile_report(quotes, prompt, end_published_date=end_published_date)
-        if self.include_works_cited_list:
-            works_cited_list = WorksCitedCreator.create_works_cited_list(
-                quotes, report
+        if self.use_compile_report:
+            report = await self.__compile_report(quotes, prompt, end_published_date=end_published_date) # TODO - возможно лишний шаг, можно напрямую закинуть цитаты в промт
+            if self.include_works_cited_list:
+                works_cited_list = WorksCitedCreator.create_works_cited_list(
+                    quotes, report
+                )
+                report = report + "\n\n" + works_cited_list
+                final_report = self.__add_links_to_citations(report, quotes)
+            else:
+                final_report = report
+        else:
+            highlights_context = self._turn_highlights_into_search_context_for_prompt(
+                quotes
             )
-            report = report + "\n\n" + works_cited_list
-        final_report = self.__add_links_to_citations(report, quotes)
+            final_report = str(highlights_context)
         return final_report, quotes
+
+    @staticmethod
+    def __extract_search_inputs_json(response: str) -> str:
+        pattern = r"<search_inputs>\s*(\[[\s\S]*?\])\s*</search_inputs>"
+        match = re.search(pattern, response)
+        if not match:
+            print("Search query generation parsing failed:")
+            print(response)
+            raise ValueError("No search inputs JSON found in response")
+        return match.group(1)
 
     async def __come_up_with_search_queries(
         self, prompt: str, end_published_date: datetime | None = None
     ) -> list[SearchInput]:
-
         prompt = clean_indents(
             f"""
-            You have been given the following question.
+            TODAY'S DATE IS {end_published_date.strftime('%Y-%m-%d') if end_published_date else datetime.now().strftime('%Y-%m-%d')}
 
+            You are an assistant to a superforecaster.
+            The superforecaster will give you a question they intend to forecast on.
+            To be a great assistant, you generate a concise but detailed rundown of the most relevant news, including if the question would resolve Yes or No based on current information.
+            You do not produce forecasts yourself.
+
+            You have been given the following question to analyze:
             <question>
             {prompt}
             </question>
 
-            Generate {self.number_of_searches_to_run} google searches that will help you fulfill any questions in the instructions.
-            Consider and walk through the following before giving your json answers.
+            Generate {self.number_of_searches_to_run} google searches that will be usefull you to answer the question.
+            Each query should be unique and not be a variation of another query.
 
             First, provide your COT analysis in <analysis> tags, then provide the JSON output.
-            In your analysis, explain:
-            - What are some possible search queries and strategies that would be useful?
+            Example questions to consider:
+            - Take into account current date when generating start_published_date and relevant queries
+            - Note that the most recent news are the most relevant, therefore make reasanable limit on start_published_date for the news that are very abundant
             - What are the aspects of the question that are most important? Are there multiple aspects?
-            - Where is the information you need likely to be found or what will good sources likely contain in them?
-            - Would it already be at the top of the search results, or should you filter for it?
-            - What filters would help you achieve this to increase the information density of the results?
-            - You have limited searches, which approaches would be highest priority?
-            Don't unnecessarily constrain results.
-            Remember today is {end_published_date.strftime('%Y-%m-%d') if end_published_date else datetime.now().strftime('%Y-%m-%d')}
 
-            After your analysis, make sure to return a list of the search inputs as a list of JSON objects in this schema.
-            Each object in the list must have a "web_search_query" field.
-            The "highlight_query" field should be null.
-            The "end_published_date" field should be null unless specifically needed.
+            Return a list of search inputs as a list of JSON objects. Each object must have this schema:
+            Here is the search_inputs schema as a list of JSON objects:
+            [
+                {{
+                    "web_search_query": "Required. The search query to find relevant web pages",
+                    "highlight_query": "Optional. Text to highlight within found documents. If not provided, web_search_query will be used",
+                    "start_published_date": "Optional. Earliest allowed publication date in ISO format. Default: null"
+                }}
+            ]
 
-            Example output format for 2 search outputs:
+            Example output:
             <analysis>
             ...
             </analysis>
             <search_inputs>
             [
                 {{
-                    "web_search_query": "first search query here",
-                    "highlight_query": "The text to search within each document using semantic similarity",
-                    "end_published_date": 'date'
+                    "web_search_query": "...",
+                    "highlight_query": "...",
+                    "start_published_date": "..."
                 }},
                 {{
-                    "web_search_query": "second search query here",
-                    "highlight_query": "The text to search within each document using semantic similarity",
-                    "end_published_date": 'date
+                    "web_search_query": "...",
+                    "highlight_query": "...",
+                    "start_published_date": "..."
                 }}
             ]
             </search_inputs>
             """
         )
+        max_retries = 3
+        retry_delay = 2  # seconds
+        last_error = None
 
-        response = await self.llm.invoke(prompt)
-        # Extract JSON part after the analysis
-        json_start = response.rfind("[")
-        if json_start == -1:
-            print("Search query generation parsing failed:")
-            print(response)
-            raise ValueError("No JSON array found in response")
+        for attempt in range(max_retries):
+            try:
+                response = await self.llm.invoke(prompt)
+                json_str = self.__extract_search_inputs_json(response)
+                repaired_json = json.loads(str(repair_json(json_str)))
+                break
+            except Exception as e:
+                last_error = e
+                if attempt < max_retries - 1:
+                    logger.warning(f"Attempt {attempt + 1} failed with error: {str(e)}. Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay * (attempt + 1))
+                continue
+        else:
+            error_msg = f"Failed to generate search inputs after {max_retries} attempts. Last error: {str(last_error)}"
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
-        json_str = response[json_start:]
-        repaired_json = repair_json(json_str)
-        search_terms = await self.llm.invoke_and_return_verified_type(
-            repaired_json, list[SearchInput]
-        )
+        search_terms = [SearchInput(**search) for search in repaired_json]
         for search in search_terms:
             search.end_published_date = end_published_date
         search_log = "\n".join(
@@ -157,7 +192,7 @@ class SmartSearcher(OutputsText, AiModel):
             return await asyncio.gather(
                 *[
                     self.exa_searcher.invoke_for_highlights_in_relevance_order(
-                        search_query_or_strategy=search, end_published_date=search.end_published_date
+                        search_query_or_strategy=search
                     )
                     for search in search_inputs
                 ]
@@ -214,7 +249,7 @@ class SmartSearcher(OutputsText, AiModel):
         ), "Too many search results found"
 
         search_result_context = (
-            self.__turn_highlights_into_search_context_for_prompt(
+            self._turn_highlights_into_search_context_for_prompt(
                 search_results
             )
         )
@@ -235,7 +270,14 @@ class SmartSearcher(OutputsText, AiModel):
             </internet_search_results>
 
             Please answer the question using the search results.
-            Please cite your sources inline and use markdown formatting. If the sources say nothing useful - clearly state that.
+            Consider relative dates of the search results and the today's date when providing your answer.
+
+            Please cite your sources inline and use markdown formatting.
+
+            Clearly state:
+             - is your response based on the provided sources or not
+             - how confident you are in the provided sources.
+             - date of publication of the used source
 
             For instance, this quote:
             > [1] "SpaceX successfully completed a full flight test of its Starship spacecraft on April 20, 2023"
@@ -248,7 +290,7 @@ class SmartSearcher(OutputsText, AiModel):
         return report
 
     @staticmethod
-    def __turn_highlights_into_search_context_for_prompt(
+    def _turn_highlights_into_search_context_for_prompt(
         highlights: list[ExaHighlightQuote],
     ) -> str:
         search_context = ""

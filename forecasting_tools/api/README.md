@@ -20,7 +20,7 @@ pip install -r requirements.txt
 
 3. Start the server:
 ```bash
-uvicorn forecasting_tools.api.app:app --reload
+python forecasting_tools/api/app.py
 ```
 
 ### Option 2: Docker Installation
