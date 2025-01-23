@@ -8,20 +8,17 @@ import typeguard
 from forecasting_tools.ai_models.resource_managers.monetary_cost_manager import (
     MonetaryCostManager,
 )
-from forecasting_tools.forecasting.forecast_bots.experiments.exa_bot import (
-    ExaBot,
-)
-from forecasting_tools.forecasting.forecast_bots.experiments.exa_q4_binary import (
-    ExaQ4BinaryBot,
-)
-from forecasting_tools.forecasting.forecast_bots.experiments.exa_q4_binary_o1_preview import (
-    ExaQ4BinaryO1PreviewBot,
-)
-from forecasting_tools.forecasting.forecast_bots.experiments.q4_main_binary_bot import (
-    Q4MainBinaryBot,
+from forecasting_tools.forecasting.forecast_bots.experiments.q4v_w_exa_and_dseekr1 import (
+    Q4VeritasWithExaAndDeepSeekR1,
 )
 from forecasting_tools.forecasting.forecast_bots.forecast_bot import (
     ForecastBot,
+)
+from forecasting_tools.forecasting.forecast_bots.official_bots.q1_veritas_bot import (
+    Q1VeritasBot,
+)
+from forecasting_tools.forecasting.forecast_bots.official_bots.q3_template_bot import (
+    Q3TemplateBot,
 )
 from forecasting_tools.forecasting.helpers.benchmarker import Benchmarker
 from forecasting_tools.util.custom_logger import CustomLogger
@@ -30,13 +27,26 @@ logger = logging.getLogger(__name__)
 
 
 async def benchmark_forecast_bot() -> None:
-    questions_to_use = 120
+    questions_to_use = 65
     with MonetaryCostManager() as cost_manager:
         bots = [
-            ExaBot(),
-            Q4MainBinaryBot(),
-            ExaQ4BinaryBot(),
-            ExaQ4BinaryO1PreviewBot(),
+            Q3TemplateBot(),
+            Q4VeritasWithExaAndDeepSeekR1(
+                research_reports_per_question=1,
+                predictions_per_research_report=1,
+            ),
+            Q4VeritasWithExaAndDeepSeekR1(
+                research_reports_per_question=5,
+                predictions_per_research_report=5,
+            ),
+            Q1VeritasBot(
+                research_reports_per_question=1,
+                predictions_per_research_report=1,
+            ),
+            Q1VeritasBot(
+                research_reports_per_question=5,
+                predictions_per_research_report=5,
+            ),
         ]
         bots = typeguard.check_type(bots, list[ForecastBot])
         benchmarks = await Benchmarker(

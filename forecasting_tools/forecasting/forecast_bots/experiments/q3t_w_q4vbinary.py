@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
-from forecasting_tools.forecasting.forecast_bots.experiments.q3_template_bot import (
+from forecasting_tools.forecasting.forecast_bots.official_bots.q3_template_bot import (
     Q3TemplateBot,
 )
 from forecasting_tools.forecasting.questions_and_reports.forecast_report import (
@@ -12,7 +12,7 @@ from forecasting_tools.forecasting.questions_and_reports.questions import (
 )
 
 
-class Q4MainBinaryBot(Q3TemplateBot):
+class Q3TemplatePlusQ4VeritasBinaryPrompt(Q3TemplateBot):
 
     async def _run_forecast_on_binary(
         self, question: BinaryQuestion, research: str

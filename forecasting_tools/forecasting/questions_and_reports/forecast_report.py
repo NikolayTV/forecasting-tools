@@ -4,7 +4,7 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Any, Generic, TypeVar
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from forecasting_tools.forecasting.questions_and_reports.questions import (
     MetaculusQuestion,
@@ -26,6 +26,7 @@ class ReasonedPrediction(BaseModel, Generic[T]):
 class ResearchWithPredictions(BaseModel, Generic[T]):
     research_report: str
     summary_report: str
+    errors: list[str] = Field(default_factory=list)
     predictions: list[ReasonedPrediction[T]]
 
 
@@ -35,6 +36,7 @@ class ForecastReport(BaseModel, Jsonable, ABC):
     other_notes: str | None = None
     price_estimate: float | None = None
     minutes_taken: float | None = None
+    errors: list[str] = Field(default_factory=list)
     prediction: Any
 
     @field_validator("explanation")
@@ -70,6 +72,16 @@ class ForecastReport(BaseModel, Jsonable, ABC):
         (see scripts/simulate_a_tournament.ipynb).
         We invert the expected log score so it behaves like a brier score
         (where it is positive and lower is better).
+
+        The score for a perfect predictor for a set of binary questions with
+        community predictions distributed
+        - Uniformly between 0 and 1 is 0.723
+        - Closer to 0 or 1 is 0.553
+        - Closer to 0.5 is 0.932
+        - Uniformly between 0.1 and 0.9 is 0.834
+        - Uniformly between (0 and 0.1) union (0.9 and 1) is 0.270
+
+        Someone who predicts 0.5 always gets a value of 1
         """
         raise NotImplementedError("Not implemented")
 

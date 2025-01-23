@@ -1,5 +1,5 @@
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
-from forecasting_tools.forecasting.forecast_bots.experiments.q3_template_bot import (
+from forecasting_tools.forecasting.forecast_bots.official_bots.q3_template_bot import (
     Q3TemplateBot,
 )
 from forecasting_tools.forecasting.helpers.smart_searcher import SmartSearcher
@@ -8,7 +8,7 @@ from forecasting_tools.forecasting.questions_and_reports.questions import (
 )
 
 
-class ExaBot(Q3TemplateBot):
+class Q3TemplateWithExa(Q3TemplateBot):
 
     async def run_research(self, question: MetaculusQuestion) -> str:
         prompt = clean_indents(
@@ -23,5 +23,7 @@ class ExaBot(Q3TemplateBot):
             """
         )
 
-        response = await SmartSearcher(temperature=0.1).invoke(prompt)
+        response = await SmartSearcher(
+            temperature=0.1, num_searches_to_run=2, num_sites_per_search=10
+        ).invoke(prompt)
         return response

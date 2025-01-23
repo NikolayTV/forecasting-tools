@@ -187,10 +187,13 @@ class SmartSearcher(OutputsText, AiModel):
         search_results: list[ExaHighlightQuote],
         original_instructions: str,
     ) -> str:
-        assert len(search_results) > 0, "No search results found"
+        if len(search_results) == 0:
+            return "No search results found for the query using the search filter chosen"
+
         assert (
             len(search_results) <= self.num_quotes_to_evaluate_from_search
         ), "Too many search results found"
+
         search_result_context = (
             self.__turn_highlights_into_search_context_for_prompt(
                 search_results

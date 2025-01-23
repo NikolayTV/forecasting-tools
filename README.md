@@ -2,8 +2,8 @@
 ![Python Versions](https://img.shields.io/pypi/pyversions/forecasting-tools.svg)
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
 [![Discord](https://img.shields.io/badge/Discord-Join-blue)](https://discord.gg/Dtq4JNdXnw)
-[![Downloads](https://static.pepy.tech/personalized-badge/forecasting-tools?period=month&units=international_system&left_color=black&right_color=brightgreen&left_text=Monthly%20Downloads)](https://pepy.tech/project/forecasting-tools)
-[![Downloads](https://static.pepy.tech/personalized-badge/forecasting-tools?period=total&units=international_system&left_color=black&right_color=blue&left_text=Total%20Downloads)](https://pepy.tech/project/forecasting-tools)
+[![PyPI Downloads](https://static.pepy.tech/badge/forecasting-tools/month)](https://pepy.tech/projects/forecasting-tools)
+[![PyPI Downloads](https://static.pepy.tech/badge/forecasting-tools)](https://pepy.tech/projects/forecasting-tools)
 
 
 # Quick Install
@@ -27,7 +27,7 @@ Here are some other cool components and features of the project:
 - **Fermi Estimator:** for breaking down numerical estimates (still experimental)
 - **Monetary Cost Manager:** for tracking AI and API expenses
 
-All the examples below are in a Jupyter Notebook called `README.ipynb` which you can run locally to test the package.
+All the examples below are in a Jupyter Notebook called `README.ipynb` which you can run locally to test the package (make sure to run the first cell though).
 
 Join the [discord](https://discord.gg/Dtq4JNdXnw) for updates and to give feedback (btw feedback is very appreciated, even just a quick "I did/didn't decide to use tool X for reason Y, though am busy and don't have time to elaborate" is helpful to know)
 
@@ -72,7 +72,7 @@ for report in reports:
 
 
 ```python
-from forecasting_tools import TemplateBot, BinaryQuestion, QuestionState
+from forecasting_tools import TemplateBot, BinaryQuestion, QuestionState, MetaculusApi
 
 # Initialize the bot
 bot = TemplateBot(
@@ -105,8 +105,8 @@ for report in reports:
 ```
 
     Question: Will humans go extinct before 2100?
-    Prediction: 0.02
-    Reasoning:  # SUMMARY *Question*: Will humans go extinct before 2100? *Final Prediction*: 2.0% *Total Cost*: $0...
+    Prediction: 0.03
+    Reasoning:  # SUMMARY *Question*: Will humans go extinct before 2100? *Final Prediction*: 3.0% *Total Cost*: $0...
     Question: Will YouTube be blocked in Russia?
     Prediction: 0.7
     Reasoning:  # SUMMARY *Question*: Will YouTube be blocked in Russia? *Final Prediction*: 70.0% *Total Cost*: $0...
@@ -124,18 +124,19 @@ Note: You'll need to have your environment variables set up (see the section bel
 ## Making your own bot for Metaculus AI Tournament
 
 ### Join the tournament through forking (quickest)
-The quickest way to join the Metaculus Benchmarking Tournament (or any other tournament) is to fork this repo, enable Github workflow/actions, and then set repository secrets. Ideally this takes less than 15min, and then you have a bot in the tournament! Later you can develop locally and then merge in changes to your fork.
+The quickest way to join the Metaculus Benchmarking Tournament (or any other tournament) is to fork this repo, enable Github workflow/actions, and then set repository secrets. Ideally this takes less than 30min, and then you have a bot in the tournament! Later you can develop locally and then merge in changes to your fork.
 
 There is a prewritten workflow that will run the bot every 15min, pick up new questions, and forecast on them. Automation is handled in the `.github/workflows/` folder. The `hourly-run.yaml` file runs the bot every 15 min and will skip questions it has already forecasted on.
 
 1) **Fork the repository**: Click 'fork' in the right hand corner of the repo.
 2) **Set secrets**: Go to `Settings -> Secrets and variables -> Actions -> New repository secret` and set API keys/Tokens as secrets. You will want to set your METACULUS_TOKEN. This will be used to post questions to Metaculus, and access the Metaculus OpenAI proxy (you should automatically be given some credits if you have a bot account). For additional environment variables you might want, see the section below.
-3) **Enable Actions**: Go to 'Actions' then click 'Enable'. Then go to the 'Hourly Run' workflow, and click 'Enable'. To test if the workflow is working, click 'Run workflow', choose the main branch, then click the green 'Run workflow' button. This will check for new questions and forecast only on ones it has not yet successfully forecast on.
+3) **Set up run_bot.py**: Click on the `run_bot.template.py` file in github and copy its contents. Then click the `run_bot.py` file. When looking at this file click the edit button (pencil icon). Paste the contents of the template file. Click `Commit Changes`. Either commit directly to the main branch, or create a pull request and merge this change in. This file will be run regularly by the github workflow to check for new questions and forecast on them
+4) **Enable Actions**: Go to 'Actions' then click 'Enable'. Then go to the 'Run Bot for Benchmark' workflow, and click 'Enable'. To test if the workflow is working, click 'Run workflow', choose the main branch, then click the green 'Run workflow' button. This will check for new questions and forecast only on ones it has not yet successfully forecast on. You can disable the workflow by clicking `Actions > Run Bot For Benchmark > Triple dots > disable workflow`.
 
-The bot should just work as is at this point. You can disable the workflow by clicking `Actions > Hourly Run > Triple dots > disable workflow`
+The bot should just work as is at this point.
 
 ### Join the tournament using package
-You can create your own custom bot through the package in your own repo (see example below). If you do this, it is recommended that you copy the `.github/workflow` workflows and customize them to call your bot so that you can run questions automatically.
+You can create your own custom bot through the package in your own repo (see example below). If you do this, it is recommended that you copy the `.github/workflow` workflows and the `run_bot.template.py` and customize them to call your bot so that you can run questions automatically.
 
 ### Local Development
 See the 'Local Development' section later in this README.
@@ -248,7 +249,7 @@ benchmarks: list[BenchmarkForBot] = await benchmarker.run_benchmark()
 
 # View results
 for benchmark in benchmarks[:2]:
-    print(f"--------------------------------")
+    print("--------------------------------")
     print(f"Bot: {benchmark.name}")
     print(f"Score: {benchmark.average_inverse_expected_log_score}") # Lower is better
     print(f"Num reports in benchmark: {len(benchmark.forecast_reports)}")
@@ -645,7 +646,7 @@ Once Docker is installed, when you open up the project folder in VSCode, you wil
 
 Once you are in the container, poetry should have already installed a virtual environment. For VSCode features to use this environment, you will need to select the correct python interpreter. You can do this by pressing `Ctrl + Shift + P` and then typing `Python: Select Interpreter`. Then select the interpreter that starts with `.venv`.
 
-A number of vscode extensions are installed automatically (e.g. linting). You may need to wait a little while and then reload the window after all of these extensions are installed. You can install personal vscode extensions in the dev environment.
+A number of vscode extensions are installed automatically (e.g. linting). You may need to wait a little while and then reload the window (once for things to install, and a second for needed reload after installation). You can install personal vscode extensions in the dev environment.
 
 
 ### Managing Docker
@@ -654,6 +655,13 @@ There are many ways to manager Docker containers, but generally if you download 
 
 ### Alternatives to Docker
 If you choose not to run Docker, you can use poetry to set up a local virtual environment. If you are on Ubuntu, you should be able to just read through and then run `.devcontainer/postinstall.sh`. If you aren't on Ubuntu, check out the links in the postinstall file for where install instructions for dependencies were originally found. You may also want to take a look at VSCode extensions that would be installed (see the list in the `.devcontainer/devcontainer.json` file) so that some VSCode workplace settings work out of the box (e.g. automatic Black Formatting).
+
+## Private/Custom Code
+Given you have forked, if you have a custom bot you don't want committed to the repository when you add code the the package, its probably best to create a branch locally that holds your custom branch in order to leave the main branch open to pull updates or push changes you want to add. If you add all your custom files in a new folder (e.g. custom) then you shouldn't have merge conflicts, and can more easily remove the folder when ready to pull or push.
+
+If you want to add your bot to the package, feel free to add your bot under `forecasting/forecast_bots/community` and other helper classes under folders that make sense.
+
+You should be able to change up `run_bot.py` and merge, and a github action will make sure it doesn't overwrite the main repo's run_bot.py (though not a hard fix if not).
 
 ## Running the Front End
 You can run any front end folder in the front_end directory by executing `streamlit run front_end/Home.py`. This will start a development server for you that you can run.
