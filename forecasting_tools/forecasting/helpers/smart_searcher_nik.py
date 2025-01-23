@@ -3,6 +3,7 @@ import logging
 import re
 import urllib.parse
 from datetime import datetime
+from json_repair import repair_json
 
 from forecasting_tools.ai_models.ai_utils.ai_misc import clean_indents
 from forecasting_tools.ai_models.basic_model_interfaces.ai_model import AiModel
@@ -64,7 +65,7 @@ class SmartSearcher(OutputsText, AiModel):
     ) -> tuple[str, list[ExaHighlightQuote]]:
         search_terms = await self.__come_up_with_search_queries(prompt, end_published_date=end_published_date)
         quotes = await self.__search_for_quotes(search_terms)
-        report = await self.__compile_report(quotes, prompt)
+        report = await self.__compile_report(quotes, prompt, end_published_date=end_published_date)
         if self.include_works_cited_list:
             works_cited_list = WorksCitedCreator.create_works_cited_list(
                 quotes, report
@@ -79,14 +80,17 @@ class SmartSearcher(OutputsText, AiModel):
 
         prompt = clean_indents(
             f"""
-            You have been given the following instructions. Instructions are included between <><><><><><><><><><><><> tags.
+            You have been given the following question.
 
-            <><><><><><>START INSTRUCTIONS<><><><><><>
+            <question>
             {prompt}
-            <><><><><><>END INSTRUCTIONS<><><><><><>
+            </question>
 
             Generate {self.number_of_searches_to_run} google searches that will help you fulfill any questions in the instructions.
-            Consider and walk through the following before giving your json answers:
+            Consider and walk through the following before giving your json answers.
+
+            First, provide your COT analysis in <analysis> tags, then provide the JSON output.
+            In your analysis, explain:
             - What are some possible search queries and strategies that would be useful?
             - What are the aspects of the question that are most important? Are there multiple aspects?
             - Where is the information you need likely to be found or what will good sources likely contain in them?
@@ -96,12 +100,16 @@ class SmartSearcher(OutputsText, AiModel):
             Don't unnecessarily constrain results.
             Remember today is {end_published_date.strftime('%Y-%m-%d') if end_published_date else datetime.now().strftime('%Y-%m-%d')}
 
-            Make sure to return a list of the search inputs as a list of JSON objects in this schema.
+            After your analysis, make sure to return a list of the search inputs as a list of JSON objects in this schema.
             Each object in the list must have a "web_search_query" field.
             The "highlight_query" field should be null.
             The "end_published_date" field should be null unless specifically needed.
 
             Example output format for 2 search outputs:
+            <analysis>
+            ...
+            </analysis>
+            <search_inputs>
             [
                 {{
                     "web_search_query": "first search query here",
@@ -114,11 +122,22 @@ class SmartSearcher(OutputsText, AiModel):
                     "end_published_date": 'date
                 }}
             ]
+            </search_inputs>
             """
         )
 
+        response = await self.llm.invoke(prompt)
+        # Extract JSON part after the analysis
+        json_start = response.rfind("[")
+        if json_start == -1:
+            print("Search query generation parsing failed:")
+            print(response)
+            raise ValueError("No JSON array found in response")
+
+        json_str = response[json_start:]
+        repaired_json = repair_json(json_str)
         search_terms = await self.llm.invoke_and_return_verified_type(
-            prompt, list[SearchInput]
+            repaired_json, list[SearchInput]
         )
         for search in search_terms:
             search.end_published_date = end_published_date
@@ -185,6 +204,7 @@ class SmartSearcher(OutputsText, AiModel):
         self,
         search_results: list[ExaHighlightQuote],
         original_instructions: str,
+        end_published_date: datetime | None = None,
     ) -> str:
         if len(search_results) == 0:
             return "No search results found for the query using the search filter chosen"
@@ -202,20 +222,20 @@ class SmartSearcher(OutputsText, AiModel):
         logger.debug(f"Search results:\n{search_result_context}")
         prompt = clean_indents(
             f"""
-            Today is {datetime.now().strftime("%Y-%m-%d")}.
-            You have been given the following instructions. Instructions are included between <><><><><><><><><><><><> tags.
+            Today is {end_published_date.strftime("%Y-%m-%d") if end_published_date else datetime.now().strftime("%Y-%m-%d")}.
+            You have been given the following qustion
 
-            <><><><><><><><><><><><>
+            <question>
             {original_instructions}
-            <><><><><><><><><><><><>
+            </question>
 
-
-            After searching the internet, you found the following results. Results are included between <><><><><><><><><><><><> tags.
-            <><><><><><><><><><><><>
+            After searching the internet, you found the following results.
+            <internet_search_results>
             {search_result_context}
-            <><><><><><><><><><><><>
+            </internet_search_results>
 
-            Please follow the instructions and use the search results to answer the question. Unless the instructions specifify otherwise, please cite your sources inline and use markdown formatting.
+            Please answer the question using the search results.
+            Please cite your sources inline and use markdown formatting. If the sources say nothing useful - clearly state that.
 
             For instance, this quote:
             > [1] "SpaceX successfully completed a full flight test of its Starship spacecraft on April 20, 2023"

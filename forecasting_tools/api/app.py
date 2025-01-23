@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Depends, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 import uvicorn
+from forecasting_tools.forecasting.forecast_bots.official_bots.q4_veritas_bot import Q4VeritasBot
 from forecasting_tools.forecasting.forecast_bots.template_v1_bot import TemplateBot_v1
 from forecasting_tools.forecasting.questions_and_reports.questions import BinaryQuestion, QuestionState
 
@@ -75,6 +76,16 @@ async def get_prediction(
                     folder_to_save_reports_to='./reports',
                     skip_previously_forecasted_questions=True,
                 )
+            elif version == "Q1":
+                report = await Q4VeritasBot(
+                    research_reports_per_question=3,
+                    predictions_per_research_report=3,
+                    publish_reports_to_metaculus=False,
+                    folder_to_save_reports_to='./reports',
+                    number_of_background_questions_to_ask=5,
+                    number_of_base_rate_questions_to_ask=5,
+                    number_of_base_rates_to_do_deep_research_on=0,
+                ).forecast_question(input.question)
             else:
                 bot = TemplateBot_v1(
                     research_reports_per_question=1,

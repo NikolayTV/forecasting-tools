@@ -6,7 +6,7 @@ import pytest
 from forecasting_tools.ai_models.resource_managers.monetary_cost_manager import (
     MonetaryCostManager,
 )
-from forecasting_tools.forecasting.helpers.smart_searcher import SmartSearcher
+from forecasting_tools.forecasting.helpers.smart_searcher_nik import SmartSearcher
 
 logger = logging.getLogger(__name__)
 

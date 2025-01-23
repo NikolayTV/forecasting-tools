@@ -13,7 +13,7 @@ from forecasting_tools.ai_models.perplexity import Perplexity
 from forecasting_tools.forecasting.forecast_bots.forecast_bot import (
     ForecastBot,
 )
-from forecasting_tools.forecasting.helpers.smart_searcher import SmartSearcher
+from forecasting_tools.forecasting.helpers.smart_searcher_nik import SmartSearcher
 from forecasting_tools.forecasting.questions_and_reports.forecast_report import (
     ReasonedPrediction,
 )
